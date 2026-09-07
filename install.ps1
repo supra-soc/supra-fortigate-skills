@@ -12,7 +12,7 @@
   El skill se instala en $HOME\.claude\skills\fortigate-report. Esa ruta la leen
   tanto opencode como Claude Code, asi que una sola instalacion sirve para los
   dos. El nombre de la carpeta TIENE que ser "fortigate-report" (el campo name:
-  del SKILL.md); si clonas el repo a mano te queda "fortinet-report-skill" y el
+  del SKILL.md); si clonas el repo a mano te queda "supra-fortigate-skills" y el
   agente no encuentra el skill. Por eso existe este script.
 
 .PARAMETER SkillsDir
@@ -29,13 +29,13 @@
   .\install.ps1
 
 .EXAMPLE
-  irm https://raw.githubusercontent.com/Liebeslied001/fortinet-report-skill/main/install.ps1 | iex
+  irm https://raw.githubusercontent.com/supra-soc/supra-fortigate-skills/master/install.ps1 | iex
 #>
 [CmdletBinding()]
 param(
     [string] $SkillsDir = (Join-Path $HOME '.claude\skills'),
-    [string] $Repo      = 'https://github.com/Liebeslied001/fortinet-report-skill.git',
-    [string] $Ref       = 'main',
+    [string] $Repo      = 'https://github.com/supra-soc/supra-fortigate-skills.git',
+    [string] $Ref       = 'master',
     [switch] $SkipCredentials
 )
 
@@ -122,7 +122,6 @@ if (-not $localSrc) {
 Write-Step "Instalando el skill"
 
 $dest = Join-Path $SkillsDir $SKILL_NAME
-New-Item -ItemType Directory -Force -Path $dest | Out-Null
 
 # Se conservan los archivos que NO vienen del repo y que el usuario si quiere
 # mantener entre instalaciones: la identidad de marca y sus credenciales.
@@ -137,6 +136,18 @@ foreach ($rel in $preservar) {
     if (Test-Path $p) { $respaldo[$rel] = [IO.File]::ReadAllBytes($p) }
 }
 
+# El destino se borra por completo antes de copiar, no se mezcla encima. Una
+# instalacion anterior (de una version vieja del skill, con otra estructura
+# de carpetas) puede dejar archivos que el arbol nuevo no toca porque no
+# coinciden por ruta -- por ejemplo esta misma carpeta tuvo, en una version
+# anterior, un scripts\node_modules\ propio con su propio docx instalado. Si
+# eso sigue ahi, Node lo resuelve ANTES que el node_modules de la raiz (busca
+# de adentro hacia afuera), y build_report.js terminaria usando ese docx
+# viejo en silencio, sin ningun error. Borrar y reconstruir es la unica forma
+# de garantizar que instalar "reemplaza" de verdad y no "mezcla".
+if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
+New-Item -ItemType Directory -Force -Path $dest | Out-Null
+
 Get-ChildItem -Path $localSrc -Force |
     Where-Object { $_.Name -notin @('.git', 'node_modules', 'credentials.txt') } |
     ForEach-Object { Copy-Item $_.FullName -Destination $dest -Recurse -Force }
@@ -148,7 +159,7 @@ foreach ($rel in $respaldo.Keys) {
     Write-Ok "conservado: $rel"
 }
 
-Write-Ok "skill en $dest"
+Write-Ok "skill en $dest (destino limpiado antes de copiar)"
 Write-Host "         (esa ruta la leen opencode y Claude Code)" -ForegroundColor DarkGray
 
 if ($tmp -and (Test-Path $tmp)) { Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue }

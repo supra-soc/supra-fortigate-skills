@@ -27,15 +27,15 @@ su Chromium, python-docx, Graphviz, y el archivo de credenciales abierto para qu
 lo llenes una sola vez.
 
 ```powershell
-irm https://raw.githubusercontent.com/Liebeslied001/fortinet-report-skill/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/supra-soc/supra-fortigate-skills/master/install.ps1 | iex
 ```
 
 Si prefieres leer el script antes de ejecutarlo — que es lo razonable con
 cualquier instalador de internet:
 
 ```powershell
-git clone https://github.com/Liebeslied001/fortinet-report-skill.git
-cd fortinet-report-skill
+git clone https://github.com/supra-soc/supra-fortigate-skills.git
+cd supra-fortigate-skills
 .\install.ps1
 ```
 
@@ -50,7 +50,7 @@ dos.
 
 El nombre de la carpeta tiene que ser exactamente **`fortigate-report`** — el
 campo `name:` del `SKILL.md`. Si clonas el repo a mano te queda
-`fortinet-report-skill`, que es el nombre del repositorio y no el del skill, y
+`supra-fortigate-skills`, que es el nombre del repositorio y no el del skill, y
 **el agente no lo encuentra**: el cargador de skills falla y el modelo termina
 leyendo el `SKILL.md` como si fuera un archivo cualquiera. El instalador existe
 en buena parte para evitar ese error.
