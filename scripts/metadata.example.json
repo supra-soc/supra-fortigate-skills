@@ -1,0 +1,26 @@
+{
+  "empresa": "SUPRA",
+  "nombre_proyecto": "Renovación de Firewalls Sede Norte",
+  "cliente": "Cliente Ejemplo S.A.",
+  "contacto_cliente": "Nombre del contacto",
+  "ubicacion": "Sede Norte",
+  "ingeniero": "Nombre del ingeniero",
+  "tipo_proyecto": "migracion",
+  "fecha_inicio": "12/03/26",
+  "fecha_fin": "13/04/26",
+  "alcance": "Renovación de firewalls y FortiAnalyzer en la sede Norte.",
+  "equipos": [
+    { "equipo": "FGT-EJEMPLO01", "modelo": "FG-70G", "serie": "(completar)", "fortios": "V7.6.7" }
+  ],
+  "faz": {
+    "modelo": "FAZ-VM64",
+    "version": "V7.4.6",
+    "cpu": "8 vcpu",
+    "memoria": "16 GB",
+    "disco": "3 TB"
+  },
+  "conclusiones": [
+    "Se cumplió con la migración de configuración al nuevo equipo FGT-EJEMPLO01.",
+    "Pendiente: retiro de red del equipo anterior."
+  ]
+}

@@ -1,0 +1,39 @@
+# Dependencias de Node
+node_modules/
+
+# Cache de Python
+__pycache__/
+*.pyc
+
+# Credenciales locales de captura (nunca versionar)
+credentials.txt
+**/credentials.txt
+credentials.local.json
+**/credentials.local.json
+
+# Archivos de trabajo que produce una corrida del skill (no parte del skill)
+parsed.json
+metadata.json
+captures.json
+topology.dot
+topology.png
+informe.docx
+informe.pdf
+_check/
+capturas/
+work_*/
+playwright-report/
+test-results/
+
+# Logs
+*.log
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Identidad de marca — NO se publica.
+# Los PNG viven en tu copia local; el repo publico va sin ellos.
+# build_report.js los detecta con existsSync y, si faltan, genera el informe
+# sin portada de marca ni watermark (verificado: 69 parrafos, 18 tablas, valido).
+scripts/assets/*.png

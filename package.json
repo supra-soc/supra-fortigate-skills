@@ -1,0 +1,17 @@
+{
+  "name": "fortigate-report-skill",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Skill de agente para generar informes de entrega de firewalls Fortinet (FortiGate/FortiAnalyzer) con capturas reales via Playwright.",
+  "scripts": {
+    "setup": "npm install && npx playwright install chromium",
+    "creds:init": "node scripts/capture/credentials.js --init",
+    "creds:check": "node scripts/capture/credentials.js --check",
+    "creds:wipe": "node scripts/capture/credentials.js --wipe",
+    "capture": "node scripts/capture/capture_playwright.js"
+  },
+  "dependencies": {
+    "docx": "^9.7.1",
+    "playwright": "^1.53.0"
+  }
+}
