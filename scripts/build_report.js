@@ -364,6 +364,42 @@ function deviceKind(dev) {
 const firewalls = deviceEntries.filter(([, d]) => deviceKind(d) === "fgt");
 const analyzers = deviceEntries.filter(([, d]) => deviceKind(d) === "faz");
 
+// ---------- alinear captures.json con el hostname del .conf ----------
+// capture_playwright.js guarda las claves con el --host que se le paso (la
+// etiqueta del bloque de credentials.txt, p.ej. "lab-fgt"), no con el
+// hostname real dentro del .conf (p.ej. "USMIAFW01WP"). Nada obliga a que
+// coincidan -- un ingeniero puede llamarle "lab-fgt" a las credenciales de
+// un equipo cuyo .conf trae otro hostname. Sin este alias, evidence() busca
+// "cpu_USMIAFW01WP" y nunca encuentra "cpu_lab-fgt": todo cae al recuadro
+// manual aunque las 6 capturas existan y esten bien. Confirmado en una
+// corrida real: sin este fix, un agente sin iniciativa para diagnosticarlo
+// entrega un informe con 6 recuadros vacios de pura casualidad de nombres.
+//
+// Solo se resuelve solo cuando es inambiguo: un unico firewall en el .conf y
+// un unico sufijo de hostname entre las claves de captures.json. Con un par
+// HA o varios equipos, adivinar cual captura es de cual firewall podria
+// asignar mal las imagenes -- ahi se exige coincidencia exacta.
+if (firewalls.length === 1 && Object.keys(captures).length) {
+  const confHost = firewalls[0][0];
+  const prefixes = ["licencia_", "cpu_", "memoria_", "sesiones_", "ha_live_", "ospf_neighbor_"];
+  const suffixes = new Set();
+  for (const key of Object.keys(captures)) {
+    if (key === "licencia_general") continue; // clave fija, sin hostname -- no es un candidato a "sufijo"
+    const pre = prefixes.find((p) => key.startsWith(p));
+    if (pre) suffixes.add(key.slice(pre.length));
+  }
+  if (suffixes.size === 1) {
+    const [capHost] = suffixes;
+    if (capHost && capHost !== confHost) {
+      for (const pre of prefixes) {
+        const oldKey = pre + capHost;
+        const newKey = pre + confHost;
+        if (captures[oldKey] && !captures[newKey]) captures[newKey] = captures[oldKey];
+      }
+    }
+  }
+}
+
 const tipoProyectoLabel = metadata.tipo_proyecto === "migracion"
   ? "Migración de equipos existentes"
   : "Implementación nueva (desde cero)";
