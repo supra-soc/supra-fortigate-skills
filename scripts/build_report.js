@@ -366,11 +366,11 @@ const analyzers = deviceEntries.filter(([, d]) => deviceKind(d) === "faz");
 
 // ---------- alinear captures.json con el hostname del .conf ----------
 // capture_playwright.js guarda las claves con el --host que se le paso (la
-// etiqueta del bloque de credentials.txt, p.ej. "lab-fgt"), no con el
-// hostname real dentro del .conf (p.ej. "USMIAFW01WP"). Nada obliga a que
-// coincidan -- un ingeniero puede llamarle "lab-fgt" a las credenciales de
+// etiqueta del bloque de credentials.txt, p.ej. "fgt-lab"), no con el
+// hostname real dentro del .conf (p.ej. "FGT-EJEMPLO01"). Nada obliga a que
+// coincidan -- un ingeniero puede llamarle "fgt-lab" a las credenciales de
 // un equipo cuyo .conf trae otro hostname. Sin este alias, evidence() busca
-// "cpu_USMIAFW01WP" y nunca encuentra "cpu_lab-fgt": todo cae al recuadro
+// "cpu_FGT-EJEMPLO01" y nunca encuentra "cpu_fgt-lab": todo cae al recuadro
 // manual aunque las 6 capturas existan y esten bien. Confirmado en una
 // corrida real: sin este fix, un agente sin iniciativa para diagnosticarlo
 // entrega un informe con 6 recuadros vacios de pura casualidad de nombres.
