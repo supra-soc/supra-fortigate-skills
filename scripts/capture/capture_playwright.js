@@ -114,13 +114,24 @@ async function shotEl(page, label, save) {
       return txt.toUpperCase().startsWith(lbl.toUpperCase());
     });
     if (!t) return null;
+    // El contenedor del widget puede ser una clase CSS normal (widget-card,
+    // widget-container) o -- verificado contra un FortiGate real, FortiOS
+    // 7.2.x -- un elemento Angular personalizado como <f-dashboard-widget>,
+    // donde el nombre relevante esta en el TAG, no en className. Por eso se
+    // revisan los dos: className por compatibilidad con firmwares que usan
+    // clases normales, y tagName para los que usan elementos personalizados
+    // f-*-widget / nu-*-widget.
     let cur = t;
+    let bestGuess = t; // widget-header: mejor que solo el titulo si no se halla nada mas
     while (cur && cur !== document.body) {
       const cls = typeof cur.className === 'string' ? cur.className : (cur.className && cur.className.baseVal) || '';
+      const tag = cur.tagName || '';
       if (/NU-DASHBOARD-WIDGET|rsb-widget|widget-card|widget-container\b/i.test(cls)) return cur;
+      if (/^(F|NU)-[A-Z0-9-]*WIDGET$/i.test(tag)) return cur;
+      if (/\bwidget-header\b/i.test(cls)) bestGuess = cur;
       cur = cur.parentElement;
     }
-    return t;
+    return bestGuess;
   }, label);
   const element = await handle.asElement();
   if (!element) { console.log('WARN: widget no encontrado:', label); return false; }
@@ -129,6 +140,64 @@ async function shotEl(page, label, save) {
     console.log('SHOT:', save);
     return true;
   } catch (e) { console.log('WARN: screenshot de', label, 'falló:', e.message); return false; }
+}
+
+// Lista de pestañas del dashboard (Status / Security / Network / Assets &
+// Identities / WiFi, mas las que el admin haya agregado). Verificado contra
+// un FortiGate real: cada pestaña es un dashboard Angular DISTINTO
+// (/ng/system/dashboard/1, /2, /3...) con su propio set de widgets -- CPU,
+// Memory y Sessions viven normalmente solo en "Status". El contenedor real
+// es <ul class="cdk-drop-list"> (las pestañas son arrastrables/reordenables
+// por el admin, de ahi el drag-and-drop de Angular CDK).
+async function dashboardTabLabels(page) {
+  try {
+    return await page.evaluate(() => {
+      const ul = document.querySelector('ul.cdk-drop-list');
+      if (!ul) return [];
+      return [...ul.children]
+        .map(li => (li.textContent || '').trim())
+        .filter(Boolean);
+    });
+  } catch (e) { return []; }
+}
+
+async function clickDashboardTab(page, label) {
+  return page.evaluate((lbl) => {
+    const ul = document.querySelector('ul.cdk-drop-list');
+    if (!ul) return false;
+    const li = [...ul.children].find(c => (c.textContent || '').trim() === lbl);
+    if (!li) return false;
+    const clickable = li.querySelector('a') || li;
+    clickable.click();
+    return true;
+  }, label);
+}
+
+// Como shotEl, pero si el widget no esta en la pestaña de dashboard actual,
+// recorre las demas pestañas hasta encontrarlo. La pestaña actual se prueba
+// PRIMERO sin tocar nada (es el camino comun: la mayoria de los admins usan
+// "Status", que ya carga por defecto) -- solo se cambia de pestaña si hace
+// falta, y se registra en cual se encontro para poder diagnosticar.
+async function shotElAnyTab(page, label, save) {
+  if (await shotEl(page, label, save)) return true;
+
+  const tabs = await dashboardTabLabels(page);
+  if (!tabs.length) {
+    console.log('WARN:', label, 'no aparecio en la pestaña actual y no se encontro la barra de pestañas de dashboard (firmware distinto); no se puede buscar en otras.');
+    return false;
+  }
+
+  for (const tab of tabs) {
+    const clicked = await clickDashboardTab(page, tab);
+    if (!clicked) continue;
+    await page.waitForTimeout(3500);
+    if (await shotEl(page, label, save)) {
+      console.log('  (encontrado en la pestaña de dashboard "' + tab + '", no en la que cargo por defecto)');
+      return true;
+    }
+  }
+  console.log('WARN:', label, 'no se encontro en ninguna de las', tabs.length, 'pestañas de dashboard (' + tabs.join(', ') + ').');
+  return false;
 }
 
 // Menú lateral: hacer clic en una etiqueta del sidebar (x < 300)
@@ -229,9 +298,9 @@ async function login(page) {
   for (const w of widgets) {
     let done = false;
     for (const lbl of w.labels) {
-      if (await shotEl(page, lbl, path.join(OUT, w.key + '.png'))) { done = true; break; }
+      if (await shotElAnyTab(page, lbl, path.join(OUT, w.key + '.png'))) { done = true; break; }
     }
-    if (!done) console.log('WARN: capture de', w.key, 'omitida (widget no visible)');
+    if (!done) console.log('WARN: capture de', w.key, 'omitida (widget no visible en ninguna pestaña de dashboard)');
   }
 
   // Licencia / estado de soporte: la captura profesional es el apartado
@@ -259,7 +328,7 @@ async function login(page) {
     const lic = { labels: ['Licenses', 'Licencias', 'FortiGuard'], key: licKey };
     let licDone = false;
     for (const lbl of lic.labels) {
-      if (await shotEl(page, lbl, path.join(OUT, lic.key + '.png'))) { licDone = true; break; }
+      if (await shotElAnyTab(page, lbl, path.join(OUT, lic.key + '.png'))) { licDone = true; break; }
     }
     if (licDone) {
       fs.copyFileSync(path.join(OUT, lic.key + '.png'), path.join(OUT, 'licencia_general.png'));

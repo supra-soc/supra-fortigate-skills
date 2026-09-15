@@ -65,44 +65,73 @@ const TEMPLATE = [
 ].join('\n');
 
 function parseCredentials(text) {
-  const blocks = text
-    .replace(/\r\n/g, '\n')
-    .split(/\n\s*\n/)
-    .map((b) => b.split('\n').map((l) => l.trim()).filter(Boolean))
-    .filter((lines) => lines.length > 0)
-    // Un bloque donde TODAS las lineas son comentario es plantilla o ejemplo,
-    // no una credencial real. Asi el encabezado explicativo nunca se confunde
-    // con un equipo.
-    .filter((lines) => !lines.every((l) => l.startsWith('#')));
+  // Escaneo lineal, SIN depender de lineas en blanco como separador de bloque.
+  //
+  // Version anterior: partia el archivo por "\n\s*\n" (linea en blanco). Se
+  // rompio en el primer uso real: la plantilla usa "#" (un comentario vacio)
+  // como relleno visual entre parrafos de instrucciones, no una linea en
+  // blanco de verdad -- asi que el bloque entero de instrucciones y el primer
+  // equipo real terminaban fusionados en un solo "bloque", y el hostname
+  // detectado era la primera linea del encabezado, no el "# nombre-equipo"
+  // real. Con un solo equipo en el archivo, el fallback de "un solo bloque =
+  // usarlo" tapaba el bug; con dos, habria fallado de verdad.
+  //
+  // Este parser no necesita lineas en blanco en absoluto: cualquier linea que
+  // empiece por "#" es una etiqueta candidata a hostname. Un bloque se cierra
+  // en cuanto acumula sus 3 lineas de datos (url, usuario, contrasena); la
+  // siguiente linea "#" que aparezca abre el bloque siguiente. Varias lineas
+  // de comentario seguidas antes de los datos son validas (instrucciones,
+  // ejemplos) -- se queda con la ULTIMA como hostname, que es la mas cercana
+  // a los datos y por tanto la que de verdad los etiqueta.
+  const lines = text.replace(/\r\n/g, '\n').split('\n').map((l) => l.trim()).filter(Boolean);
 
   const entries = [];
   const problems = [];
+  let pendingHost = null;
+  let data = [];
+  let blockNum = 0;
 
-  blocks.forEach((lines, i) => {
-    const hostLine = lines.find((l) => l.startsWith('#'));
-    const data = lines.filter((l) => !l.startsWith('#'));
-    const host = hostLine ? hostLine.replace(/^#+\s*/, '').trim() : '';
-    const url = data[0];
-    const user = data[1];
-    const pass = data[2];
-    const label = host ? ' (' + host + ')' : '';
-
-    if (data.length < 3) {
+  function closeBlock() {
+    if (data.length === 0) return; // nada pendiente, no era un bloque real
+    blockNum += 1;
+    const label = pendingHost ? ' (' + pendingHost + ')' : '';
+    if (data.length !== 3) {
       problems.push(
-        'Bloque ' + (i + 1) + label + ': tiene ' + data.length +
+        'Bloque ' + blockNum + label + ': tiene ' + data.length +
         ' linea(s) de datos, se esperaban 3 (url, usuario, contrasena).'
       );
       return;
     }
+    const [url, user, pass] = data;
     if (!/^https?:\/\//i.test(url)) {
       problems.push(
-        'Bloque ' + (i + 1) + label + ': la primera linea de datos debe ser la ' +
+        'Bloque ' + blockNum + label + ': la primera linea de datos debe ser la ' +
         'URL y empezar por https:// — se leyo "' + url + '".'
       );
       return;
     }
-    entries.push({ host: host, url: url, user: user, pass: pass });
-  });
+    entries.push({ host: pendingHost || '', url: url, user: user, pass: pass });
+  }
+
+  for (const line of lines) {
+    if (line.startsWith('#')) {
+      if (data.length > 0) {
+        // Ya hay datos acumulados (completos o no): esta "#" cierra ese
+        // bloque -- con sus propios datos, nunca mezclado con el siguiente
+        // -- y abre uno nuevo. Un bloque a medias (1-2 lineas) se reporta
+        // con su propio host, no se le pega la culpa al bloque de despues.
+        closeBlock();
+        data = [];
+      }
+      // Con datos a medio acumular (1-2 lineas) o sin datos aun, una nueva
+      // etiqueta de comentario siempre reemplaza al pendiente: es la mas
+      // cercana a los datos que vienen despues.
+      pendingHost = line.replace(/^#+\s*/, '').trim();
+    } else {
+      data.push(line);
+    }
+  }
+  closeBlock();
 
   return { entries: entries, problems: problems };
 }
