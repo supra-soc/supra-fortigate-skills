@@ -27,15 +27,15 @@ su Chromium, python-docx, Graphviz, y el archivo de credenciales abierto para qu
 lo llenes una sola vez.
 
 ```powershell
-irm https://raw.githubusercontent.com/supra-soc/supra-fortigate-skills/master/install.ps1 | iex
+irm https://raw.githubusercontent.com/Liebeslied001/fortinet-report-skill/main/install.ps1 | iex
 ```
 
 Si prefieres leer el script antes de ejecutarlo — que es lo razonable con
 cualquier instalador de internet:
 
 ```powershell
-git clone https://github.com/supra-soc/supra-fortigate-skills.git
-cd supra-fortigate-skills
+git clone https://github.com/Liebeslied001/fortinet-report-skill.git
+cd fortinet-report-skill
 .\install.ps1
 ```
 
@@ -50,7 +50,7 @@ dos.
 
 El nombre de la carpeta tiene que ser exactamente **`fortigate-report`** — el
 campo `name:` del `SKILL.md`. Si clonas el repo a mano te queda
-`supra-fortigate-skills`, que es el nombre del repositorio y no el del skill, y
+`fortinet-report-skill`, que es el nombre del repositorio y no el del skill, y
 **el agente no lo encuentra**: el cargador de skills falla y el modelo termina
 leyendo el `SKILL.md` como si fuera un archivo cualquiera. El instalador existe
 en buena parte para evitar ese error.
@@ -72,9 +72,9 @@ Pide el informe en **un solo mensaje**. Las credenciales ya están en el archivo
 así que no las escribas en el chat:
 
 ```
-Genera el informe de entrega con C:
-uta\al\equipo.conf
-Es una migración. Cliente Acme, contacto Juan Pérez, sede Lima,
+Genera el informe de entrega con C:\ruta\al\equipo.conf
+Es una migración. Cliente Acme S.A., RUC 20123456789, dirección
+Av. Principal 123 Lima, contacto Juan Pérez, sede Lima,
 ingeniero Ana Torres, del 01/08/2026 al 08/08/2026.
 Toma las capturas en https://10.10.200.100:9443
 ```
@@ -331,6 +331,21 @@ de captura de neighbors. Es ruido en el entregable y hay que borrarlo a mano.
 
 El parser no separa VDOMs dentro de un mismo archivo. Para clientes con VDOMs,
 exporta un `.conf` por VDOM.
+
+### Cosa rara que puede pasar: opencode dice `TOOL skill -> error: ripgrep execution failed`
+
+Visto en uso real: justo después de que opencode lee un `.conf` grande y lo
+mete en el contexto, la primera invocación de su propia herramienta interna
+`skill` (la que carga `fortigate-report`) falla con `ripgrep execution failed`
+y la sesión se compacta. Esto pasa **dentro de opencode**, no en ningún script
+de este repo — no hay nada aquí que lo cause ni que lo arregle directamente.
+
+En la práctica no bloquea nada: el agente se recupera solo leyendo `SKILL.md`
+a mano y siguiendo el runbook paso a paso sin depender de que la herramienta
+`skill` haya cargado. Si ves este error, no hay que reinstalar ni preocuparse
+— basta con dejar que el agente continúe (o pedirle "lee SKILL.md y sigue" si
+se queda parado). Si se vuelve frecuente, vale la pena reportarlo a los
+mantenedores de opencode con el `.conf` que lo dispara.
 
 ---
 

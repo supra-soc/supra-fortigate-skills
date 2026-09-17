@@ -50,12 +50,13 @@ En los comandos de abajo esa carpeta se llama `work/`.
 
 ## Paso 1 — Intake
 
-Necesitas estos datos. **Si el usuario ya los dio en su mensaje, no preguntes
-nada: continúa directo al Paso 2.** El objetivo es que un mensaje bien escrito
-produzca el informe completo sin ida y vuelta.
+Necesitas estos datos. **Si el usuario ya los dio TODOS en su mensaje, no
+preguntes nada: continúa directo al Paso 2.** Ese es el camino feliz — un
+mensaje bien escrito produce el informe completo sin ida y vuelta.
 
 1. **Tipo de proyecto**: `migracion` o `implementacion_nueva`.
-2. **Cliente, contacto, ubicación, nombre del proyecto, ingeniero, fecha de
+2. **Cliente, RUC del cliente, dirección del cliente, contacto en el cliente,
+   ubicación/sede del proyecto, nombre del proyecto, ingeniero, fecha de
    inicio y fecha de fin.**
 3. **Alcance**, 1-2 frases.
 4. **IP de gestión y puerto admin** de cada equipo, para las capturas. Si el
@@ -71,10 +72,24 @@ produzca el informe completo sin ida y vuelta.
 No preguntes por nada que el `.conf` ya traiga — interfaces, rutas, políticas,
 perfiles, HA, admins — eso se extrae solo en el Paso 2.
 
-Si falta algo y el usuario pidió defaults, escribe `(completar ...)` y señálalo
-al entregar. Pero la **IP de gestión no admite default**: sin ella no hay
+### Si falta algo del punto 2 (cliente, RUC, dirección, contacto, sede,
+### proyecto, ingeniero, fechas): **pregúntalo y espera la respuesta antes de
+### seguir al Paso 2.** No es opcional, y no es lo mismo que "el usuario no
+### contestó rápido" — es una entrevista, no una sugerencia.
+
+Solo saltas la pregunta y usas `(completar ...)` cuando el usuario **ya te
+dijo explícitamente** que no los tiene o que uses defaults — frases como "no
+tengo esos datos ahora", "usa defaults y los completo yo después", "no puedo
+darte esa info todavía". Un mensaje que simplemente **no menciona** el cliente
+no cuenta como eso: la ausencia de datos no es lo mismo que un permiso para
+omitirlos. Si tienes duda de cuál es el caso, pregunta — el costo de preguntar
+de más es un mensaje; el costo de entregar un informe con `(completar ...)`
+en el cliente y el proyecto sin que nadie lo haya pedido es un informe inútil
+para el ingeniero que lo iba a usar.
+
+La **IP de gestión** tiene la misma regla, con más razón: sin ella no hay
 capturas, así que si no la dio y no dijo que el equipo es inalcanzable,
-pregúntala.
+pregúntala — nunca la saltees en silencio.
 
 ---
 
@@ -166,11 +181,11 @@ la tuya.
 Copia `scripts/metadata.example.json` y llénalo con lo del Paso 1, más la serie
 y el modelo que salieron del Paso 4 si el usuario no los dio.
 
-Campos: `empresa`, `nombre_proyecto`, `cliente`, `contacto_cliente`, `ubicacion`,
-`ingeniero`, `tipo_proyecto` (`migracion` | `implementacion_nueva`),
-`fecha_inicio`, `fecha_fin`, `alcance`, `equipos` (lista de
-`{equipo, modelo, serie, fortios}`), `faz` (`{modelo, version, cpu, memoria, disco}`
-o `null`), `conclusiones` (lista).
+Campos: `empresa`, `nombre_proyecto`, `cliente`, `ruc_cliente`,
+`direccion_cliente`, `contacto_cliente`, `ubicacion`, `ingeniero`,
+`tipo_proyecto` (`migracion` | `implementacion_nueva`), `fecha_inicio`,
+`fecha_fin`, `alcance`, `equipos` (lista de `{equipo, modelo, serie, fortios}`),
+`faz` (`{modelo, version, cpu, memoria, disco}` o `null`), `conclusiones` (lista).
 
 `fortios` sale de la cabecera del `.conf`: en
 `#config-version=FG120G-7.2.11-FW-build1740-250210` la versión es

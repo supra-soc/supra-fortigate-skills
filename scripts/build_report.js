@@ -486,8 +486,10 @@ children.push(kvTable(
   [
     ["NOMBRE DE PROYECTO", metadata.nombre_proyecto || ""],
     ["CLIENTE", metadata.cliente || ""],
+    ["RUC DEL CLIENTE", metadata.ruc_cliente || ""],
+    ["DIRECCIÓN DEL CLIENTE", metadata.direccion_cliente || ""],
     ["PERSONA DE CONTACTO EN CLIENTE", metadata.contacto_cliente || ""],
-    ["UBICACIÓN", metadata.ubicacion || ""],
+    ["UBICACIÓN (SEDE DEL PROYECTO)", metadata.ubicacion || ""],
     ["INGENIERO DE SUPRA A CARGO DEL PROYECTO", metadata.ingeniero || ""],
     ["TIPO DE PROYECTO", tipoProyectoLabel],
     ["FECHA DE INICIO", metadata.fecha_inicio || ""],

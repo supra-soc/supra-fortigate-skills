@@ -2,6 +2,8 @@
   "empresa": "SUPRA",
   "nombre_proyecto": "Renovación de Firewalls Sede Norte",
   "cliente": "Cliente Ejemplo S.A.",
+  "ruc_cliente": "20123456789",
+  "direccion_cliente": "Av. Ejemplo 123, Ciudad",
   "contacto_cliente": "Nombre del contacto",
   "ubicacion": "Sede Norte",
   "ingeniero": "Nombre del ingeniero",

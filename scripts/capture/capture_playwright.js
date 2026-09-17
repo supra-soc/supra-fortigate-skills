@@ -405,10 +405,23 @@ async function login(page) {
     ['ha_live_' + HOST]: 'captures/ha_live_' + HOST + '.png',
   };
   // Rutas relativas al captures.json (colocado en el OUT padre)
+  //
+  // OUT.split(path.sep).pop() se rompe en Windows si --out se paso con "/"
+  // (la forma que el propio SKILL.md documenta: --out work/capturas): en
+  // Windows path.sep es "\", asi que split(path.sep) sobre un string sin
+  // ninguna barra invertida no separa nada y .pop() devuelve el string
+  // COMPLETO ("work/capturas"), no solo "capturas". El resultado quedaba
+  // duplicado dentro de captures.json ("work/capturas/cpu_..." en vez de
+  // "capturas/cpu_..."), y build_report.js -- que ya resuelve la ruta
+  // relativa a la carpeta de captures.json -- terminaba buscando
+  // ".../work/work/capturas/...", que no existe: las 6 capturas se tomaban
+  // bien pero ninguna se insertaba en el informe. Confirmado con una corrida
+  // real. path.basename() entiende "/" y "\" indistintamente en Windows y
+  // no tiene este problema.
   const rel = {};
   for (const [k, v] of Object.entries(map)) {
     if (fs.existsSync(path.join(OUT, path.basename(v)))) {
-      rel[k] = v.replace(/^captures\//, OUT.split(path.sep).pop() + '/');
+      rel[k] = v.replace(/^captures\//, path.basename(OUT) + '/');
     }
   }
   const outJson = path.join(OUT, '..', 'captures.json');

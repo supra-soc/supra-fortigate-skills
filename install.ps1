@@ -12,7 +12,7 @@
   El skill se instala en $HOME\.claude\skills\fortigate-report. Esa ruta la leen
   tanto opencode como Claude Code, asi que una sola instalacion sirve para los
   dos. El nombre de la carpeta TIENE que ser "fortigate-report" (el campo name:
-  del SKILL.md); si clonas el repo a mano te queda "supra-fortigate-skills" y el
+  del SKILL.md); si clonas el repo a mano te queda "fortinet-report-skill" y el
   agente no encuentra el skill. Por eso existe este script.
 
 .PARAMETER SkillsDir
@@ -29,17 +29,29 @@
   .\install.ps1
 
 .EXAMPLE
-  irm https://raw.githubusercontent.com/supra-soc/supra-fortigate-skills/master/install.ps1 | iex
+  irm https://raw.githubusercontent.com/Liebeslied001/fortinet-report-skill/main/install.ps1 | iex
 #>
 [CmdletBinding()]
 param(
     [string] $SkillsDir = (Join-Path $HOME '.claude\skills'),
-    [string] $Repo      = 'https://github.com/supra-soc/supra-fortigate-skills.git',
-    [string] $Ref       = 'master',
+    [string] $Repo      = 'https://github.com/Liebeslied001/fortinet-report-skill.git',
+    [string] $Ref       = 'main',
     [switch] $SkipCredentials
 )
 
-$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Continue'
+# 'Continue', no 'Stop'. Verificado en una instalacion real: en PowerShell 5.1,
+# cuando powershell.exe se invoca de forma NO interactiva -- exactamente como
+# lo hace un agente (opencode, Claude Code) al correr un .ps1 -- CUALQUIER
+# texto que un ejecutable externo escriba a stderr (p.ej. "Cloning into..." de
+# git, que git escribe SIEMPRE, incluso en un clon exitoso) se envuelve en un
+# NativeCommandError y, con 'Stop', mata el script entero. Esto ocurre pase lo
+# que pase con la redireccion del comando (2>$null incluido: no es un problema
+# de este script sino de como PS 5.1 maneja stderr de procesos nativos cuando
+# su propia salida esta siendo capturada por otro proceso). Con 'Continue' el
+# script sigue de largo y cada paso critico ya se verifica con su propio
+# $LASTEXITCODE o exit 1 explicito -- no depende de que una excepcion no
+# capturada detenga la ejecucion.
 $SKILL_NAME = 'fortigate-report'
 $GRAPHVIZ_BIN = 'C:\Program Files\Graphviz\bin'
 
@@ -269,7 +281,8 @@ Write-Host "  Siguiente paso: abre opencode (o Claude Code) y pide el informe"
 Write-Host "  en UN mensaje, algo asi:" -ForegroundColor Gray
 Write-Host ""
 Write-Host '    Genera el informe de entrega con C:\ruta\al\equipo.conf' -ForegroundColor White
-Write-Host '    Es una migracion. Cliente Acme, contacto Juan Perez, sede Lima,' -ForegroundColor White
+Write-Host '    Es una migracion. Cliente Acme S.A., RUC 20123456789, direccion' -ForegroundColor White
+Write-Host '    Av. Principal 123 Lima, contacto Juan Perez, sede Lima,' -ForegroundColor White
 Write-Host '    ingeniero Ana Torres, del 01/08/2026 al 08/08/2026.' -ForegroundColor White
 Write-Host '    Toma las capturas en https://10.10.200.100:9443' -ForegroundColor White
 Write-Host ""

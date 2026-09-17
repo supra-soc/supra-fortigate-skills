@@ -32,8 +32,10 @@ test-results/
 .DS_Store
 Thumbs.db
 
-# Identidad de marca — NO se publica.
-# Los PNG viven en tu copia local; el repo publico va sin ellos.
-# build_report.js los detecta con existsSync y, si faltan, genera el informe
-# sin portada de marca ni watermark (verificado: 69 parrafos, 18 tablas, valido).
-scripts/assets/*.png
+# Identidad de marca: SI se publica en este repo (decision explicita de
+# SUPRA: el repo sigue publico y los assets de marca quedan descargables por
+# cualquiera de todas formas; se prefirio eso a depender de un paso manual
+# que en la practica nadie hacia -- un informe real salio sin logo porque
+# nadie sabia que faltaban estos dos archivos). build_report.js los detecta
+# con existsSync y, si algun dia faltan, genera el informe igual sin portada
+# de marca ni watermark en vez de romperse.
