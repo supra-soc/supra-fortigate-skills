@@ -12,7 +12,7 @@
   El skill se instala en $HOME\.claude\skills\fortigate-report. Esa ruta la leen
   tanto opencode como Claude Code, asi que una sola instalacion sirve para los
   dos. El nombre de la carpeta TIENE que ser "fortigate-report" (el campo name:
-  del SKILL.md); si clonas el repo a mano te queda "fortinet-report-skill" y el
+  del SKILL.md); si clonas el repo a mano te queda "supra-fortigate-skills" y el
   agente no encuentra el skill. Por eso existe este script.
 
 .PARAMETER SkillsDir
@@ -29,13 +29,13 @@
   .\install.ps1
 
 .EXAMPLE
-  irm https://raw.githubusercontent.com/Liebeslied001/fortinet-report-skill/main/install.ps1 | iex
+  irm https://raw.githubusercontent.com/supra-soc/supra-fortigate-skills/master/install.ps1 | iex
 #>
 [CmdletBinding()]
 param(
     [string] $SkillsDir = (Join-Path $HOME '.claude\skills'),
-    [string] $Repo      = 'https://github.com/Liebeslied001/fortinet-report-skill.git',
-    [string] $Ref       = 'main',
+    [string] $Repo      = 'https://github.com/supra-soc/supra-fortigate-skills.git',
+    [string] $Ref       = 'master',
     [switch] $SkipCredentials
 )
 
@@ -134,45 +134,90 @@ if (-not $localSrc) {
 Write-Step "Instalando el skill"
 
 $dest = Join-Path $SkillsDir $SKILL_NAME
+New-Item -ItemType Directory -Force -Path $SkillsDir | Out-Null
 
-# Se conservan los archivos que NO vienen del repo y que el usuario si quiere
-# mantener entre instalaciones: la identidad de marca y sus credenciales.
-$preservar = @(
-    'scripts\assets\supra_cover_bg.png',
-    'scripts\assets\supra_watermark_narrow.png',
-    'credentials.txt'
-)
-$respaldo = @{}
-foreach ($rel in $preservar) {
-    $p = Join-Path $dest $rel
-    if (Test-Path $p) { $respaldo[$rel] = [IO.File]::ReadAllBytes($p) }
+# Rutas REALES (resueltas, sin ".."/symlinks/alias 8.3 tipo LIEBES~1) para
+# comparar de forma confiable -- ver el aviso de seguridad justo abajo sobre
+# por que esto importa tanto. Get-Item, a diferencia de Resolve-Path, SI
+# normaliza los alias cortos de Windows a su nombre largo real (verificado:
+# Resolve-Path deja "LIEBES~1" tal cual, Get-Item lo convierte a
+# "Liebeslied") -- sin esto, dos rutas que apuntan a la MISMA carpeta pueden
+# no compararse como iguales solo porque una se escribio con el alias corto.
+$localSrcReal = (Get-Item -LiteralPath $localSrc).FullName.TrimEnd('\')
+$destParentReal = (Get-Item -LiteralPath $SkillsDir).FullName.TrimEnd('\')
+$destReal = Join-Path $destParentReal $SKILL_NAME
+
+if ($localSrcReal -ieq $destReal) {
+    # SEGURIDAD CRITICA: si la copia local que se esta usando como fuente ES
+    # el propio destino (alguien corrio "install.ps1" desde DENTRO de
+    # ~\.claude\skills\fortigate-report sin cambiar -SkillsDir, que es
+    # ademas el escenario mas comun de "quiero reinstalar/actualizar"), un
+    # simple "Remove-Item $dest -Recurse -Force" seguido de copiar desde
+    # $localSrc BORRA LA FUENTE ANTES DE COPIARLA -- el resultado es una
+    # carpeta casi vacia, no una reinstalacion limpia. Esto paso de verdad
+    # probando la version equivalente de este script en bash: destruyo una
+    # instalacion real por completo (quedaron solo credentials.txt y dos
+    # PNG, que es literalmente todo lo que el paso de "preservar" alcanzo a
+    # respaldar en memoria antes del Remove-Item).
+    #
+    # Si fuente y destino son la misma carpeta, no hay nada que copiar -- los
+    # archivos ya estan exactamente donde tienen que estar. Se salta todo el
+    # bloque de copia y se sigue directo a dependencias.
+    Write-Ok "la copia local YA ES el destino ($destReal) -- nada que copiar, se salta al siguiente paso"
+} else {
+    # Aviso de instalaciones duplicadas: opencode escanea ~\.claude\skills Y
+    # ~\.agents\skills a la vez. Este script solo instala en $dest -- si hay
+    # algo en la otra ruta, se avisa pero NO se toca sin que el usuario lo
+    # pida, porque no es la carpeta que este script declaro como destino.
+    $otherAgentsDir = Join-Path $HOME ".agents\skills\$SKILL_NAME"
+    if ($destReal -ne $otherAgentsDir -and (Test-Path $otherAgentsDir)) {
+        Write-Warn2 "Tambien existe una instalacion en $otherAgentsDir (opencode lee esa ruta tambien)."
+        Write-Warn2 "Para evitar un skill duplicado, borrala despues de confirmar que esta instalacion funciona:"
+        Write-Warn2 "  Remove-Item -Recurse -Force `"$otherAgentsDir`""
+    }
+
+    # Se conservan los archivos que NO vienen del repo y que el usuario si
+    # quiere mantener entre instalaciones: la identidad de marca y sus
+    # credenciales. Se leen ANTES de borrar el destino.
+    $preservar = @(
+        'scripts\assets\supra_cover_bg.png',
+        'scripts\assets\supra_watermark_narrow.png',
+        'credentials.txt'
+    )
+    $respaldo = @{}
+    foreach ($rel in $preservar) {
+        $p = Join-Path $dest $rel
+        if (Test-Path $p) { $respaldo[$rel] = [IO.File]::ReadAllBytes($p) }
+    }
+
+    # El destino se borra por completo antes de copiar, no se mezcla encima.
+    # Una instalacion anterior (de una version vieja del skill, con otra
+    # estructura de carpetas) puede dejar archivos que el arbol nuevo no toca
+    # porque no coinciden por ruta -- por ejemplo esta misma carpeta tuvo, en
+    # una version anterior, un scripts\node_modules\ propio con su propio
+    # docx instalado. Si eso sigue ahi, Node lo resuelve ANTES que el
+    # node_modules de la raiz (busca de adentro hacia afuera), y
+    # build_report.js terminaria usando ese docx viejo en silencio, sin
+    # ningun error. Borrar y reconstruir es la unica forma de garantizar que
+    # instalar "reemplaza" de verdad y no "mezcla".
+    # (Seguro llegar aqui: ya se confirmo arriba que $destReal -ne $localSrcReal.)
+    if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
+    New-Item -ItemType Directory -Force -Path $dest | Out-Null
+
+    Get-ChildItem -Path $localSrc -Force |
+        Where-Object { $_.Name -notin @('.git', 'node_modules', 'credentials.txt') } |
+        ForEach-Object { Copy-Item $_.FullName -Destination $dest -Recurse -Force }
+
+    foreach ($rel in $respaldo.Keys) {
+        $p = Join-Path $dest $rel
+        New-Item -ItemType Directory -Force -Path (Split-Path $p) | Out-Null
+        [IO.File]::WriteAllBytes($p, $respaldo[$rel])
+        Write-Ok "conservado: $rel"
+    }
+
+    Write-Ok "skill en $dest (destino limpiado antes de copiar)"
+    Write-Host "         (esa ruta la leen opencode y Claude Code)" -ForegroundColor DarkGray
 }
-
-# El destino se borra por completo antes de copiar, no se mezcla encima. Una
-# instalacion anterior (de una version vieja del skill, con otra estructura
-# de carpetas) puede dejar archivos que el arbol nuevo no toca porque no
-# coinciden por ruta -- por ejemplo esta misma carpeta tuvo, en una version
-# anterior, un scripts\node_modules\ propio con su propio docx instalado. Si
-# eso sigue ahi, Node lo resuelve ANTES que el node_modules de la raiz (busca
-# de adentro hacia afuera), y build_report.js terminaria usando ese docx
-# viejo en silencio, sin ningun error. Borrar y reconstruir es la unica forma
-# de garantizar que instalar "reemplaza" de verdad y no "mezcla".
-if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
-New-Item -ItemType Directory -Force -Path $dest | Out-Null
-
-Get-ChildItem -Path $localSrc -Force |
-    Where-Object { $_.Name -notin @('.git', 'node_modules', 'credentials.txt') } |
-    ForEach-Object { Copy-Item $_.FullName -Destination $dest -Recurse -Force }
-
-foreach ($rel in $respaldo.Keys) {
-    $p = Join-Path $dest $rel
-    New-Item -ItemType Directory -Force -Path (Split-Path $p) | Out-Null
-    [IO.File]::WriteAllBytes($p, $respaldo[$rel])
-    Write-Ok "conservado: $rel"
-}
-
-Write-Ok "skill en $dest (destino limpiado antes de copiar)"
-Write-Host "         (esa ruta la leen opencode y Claude Code)" -ForegroundColor DarkGray
 
 if ($tmp -and (Test-Path $tmp)) { Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue }
 

@@ -134,6 +134,18 @@ def main():
                     faltantes.append((prefix, value))
 
             scan('', meta)
+
+            # tipo_proyecto es un campo binario: "migracion" o
+            # "implementacion_nueva". Un valor vacio ("") no contiene la
+            # palabra "completar", asi que el scan() generico de arriba
+            # nunca lo detecta -- y build_report.js, si no se valida, elige
+            # un tipo en silencio (ver el fix en ese archivo). Se chequea
+            # aparte porque es el unico campo donde "vacio" no es lo mismo
+            # que "inofensivo": cambia el titulo del documento entero.
+            tp = meta.get('tipo_proyecto')
+            if tp not in ('migracion', 'implementacion_nueva'):
+                faltantes.append(('tipo_proyecto', repr(tp) + ' (debe ser "migracion" o "implementacion_nueva")'))
+
             print('')
             if faltantes:
                 print('Campos de metadata sin completar: %d' % len(faltantes))

@@ -220,6 +220,57 @@ async function clickSidebar(page, label) {
   return false;
 }
 
+// FortiOS cambio el formulario de login entre 7.2 y 7.6: 7.2 usa IDs fijos
+// (#username/#secretkey/#login_button); 7.6 los quito por completo y solo
+// deja atributos de formulario reactivo de Angular. Confirmado en vivo contra
+// un equipo 7.6.6 real -- sin este fallback, page.fill('#username', ...)
+// espera el timeout completo (60s) y el login nunca arranca, sin ningun
+// mensaje mas util que "timeout esperando #username".
+//
+// USERNAME_SELECTORS/PASSWORD_SELECTORS/SUBMIT_SELECTORS se prueban en
+// orden; el primero que exista gana. Los ya conocidos (7.2) van primero para
+// que el caso comun de hoy no pague ningun costo extra de latencia.
+//
+// PASSWORD_SELECTORS es deliberadamente MAS ANGOSTO que
+// PASSWORD_DETECT_SELECTORS: un FortiGate con FortiToken (2FA) tiene un
+// segundo campo password oculto para el codigo (#token_code) -- un
+// "input[type=password]" suelto podria matchear ese en vez del campo real,
+// o hacer que Playwright tire "strict mode violation" por ambiguedad. Para
+// RELLENAR solo se usan selectores que identifican al campo real sin
+// ambiguedad. Para DETECTAR si el formulario de login sigue en pantalla
+// (Paso posterior, no rellena nada) si vale la pena un selector mas amplio.
+const USERNAME_SELECTORS = ['#username', 'input[formcontrolname="username"]'];
+const PASSWORD_SELECTORS = ['#secretkey', 'input[aria-label="Password input"]'];
+const PASSWORD_DETECT_SELECTORS = ['#secretkey', 'form input[type="password"]', 'input[aria-label="Password input"]'];
+const SUBMIT_SELECTORS = ['#login_button', 'button.login-button', 'button[type="submit"]'];
+
+// Prueba cada selector con un timeout corto (no el de 60s por defecto) para
+// que fallar a traves de dos o tres candidatos no demore minutos.
+async function fillFirst(page, selectors, value) {
+  for (const sel of selectors) {
+    try {
+      await page.fill(sel, value, { timeout: 5000 });
+      return sel;
+    } catch (e) { /* probar el siguiente */ }
+  }
+  return null;
+}
+async function clickFirst(page, selectors) {
+  for (const sel of selectors) {
+    try {
+      await page.click(sel, { timeout: 5000 });
+      return sel;
+    } catch (e) { /* probar el siguiente */ }
+  }
+  return null;
+}
+async function anyVisible(page, selectors) {
+  for (const sel of selectors) {
+    try { if (await page.locator(sel).count()) return sel; } catch (e) { /* siguiente */ }
+  }
+  return null;
+}
+
 // ---------- flujo ----------
 async function login(page) {
   await page.goto(URL, { timeout: 60000, waitUntil: 'domcontentloaded' });
@@ -229,10 +280,21 @@ async function login(page) {
   const accept = page.getByRole('button', { name: 'Accept' }).first();
   if (await accept.count()) { await accept.click(); await page.waitForTimeout(4000); }
 
-  // Formulario de login estándar de FortiOS
-  await page.fill('#username', creds.user);
-  await page.fill('#secretkey', creds.pass);
-  await page.click('#login_button');
+  // Formulario de login: intenta los selectores de FortiOS 7.2, luego 7.6.
+  const userSel = await fillFirst(page, USERNAME_SELECTORS, creds.user);
+  const passSel = await fillFirst(page, PASSWORD_SELECTORS, creds.pass);
+  if (!userSel || !passSel) {
+    const body = await page.locator('body').innerText().catch(() => '');
+    fs.mkdirSync(OUT, { recursive: true });
+    fs.writeFileSync(path.join(OUT, 'login_fallido.txt'), body);
+    throw new Error(
+      'No se encontro el formulario de login con ningun selector conocido ' +
+      '(ni FortiOS 7.2 ni 7.6). La GUI de este firmware puede ser distinta. ' +
+      'Pagina guardada en ' + path.join(OUT, 'login_fallido.txt') + ' para diagnostico.'
+    );
+  }
+  console.log('formulario de login detectado con:', userSel, '/', passSel);
+  await clickFirst(page, SUBMIT_SELECTORS);
   await page.waitForTimeout(8000);
 
   // Gestión central por FortiManager: proceder en modo solo lectura
@@ -252,7 +314,7 @@ async function login(page) {
   // del dashboard, y terminaria con un captures.json vacio sin decir por
   // que — exactamente el fallo silencioso que las reglas del skill piden
   // evitar. Se detecta ANTES de intentar ninguna captura.
-  if (await page.locator('#secretkey').count()) {
+  if (await anyVisible(page, PASSWORD_DETECT_SELECTORS)) {
     const body = await page.locator('body').innerText().catch(() => '');
     fs.mkdirSync(OUT, { recursive: true });
     fs.writeFileSync(path.join(OUT, 'login_fallido.txt'), body);
@@ -333,6 +395,14 @@ async function login(page) {
     if (licDone) {
       fs.copyFileSync(path.join(OUT, lic.key + '.png'), path.join(OUT, 'licencia_general.png'));
     } else {
+      // Ultimo recurso: pantalla completa, sin recortar. Se ve peor en el
+      // informe que un recorte del widget, pero es mejor que un recuadro
+      // vacio. Detectado en la practica en FortiOS 7.6: ni la ruta directa
+      // ni la busqueda de widget "Licenses" funcionaron ahi (el widget de
+      // licencia parece usar una estructura distinta a .widget-title en esa
+      // version) -- si esto se ve seguido seguido en 7.6+, vale la pena
+      // investigar el selector real con las devtools contra un equipo vivo.
+      console.log('WARN: no se encontro ni la ruta de FortiGuard ni el widget de licencia; la captura de licencia cae a PANTALLA COMPLETA (sin recortar). Avisa esto al entregar el informe -- no es el recorte habitual.');
       await clickSidebar(page, 'System');
       await clickSidebar(page, 'FortiGuard');
       await page.waitForTimeout(5000);
@@ -427,6 +497,24 @@ async function login(page) {
   const outJson = path.join(OUT, '..', 'captures.json');
   let existing = {};
   try { existing = JSON.parse(fs.readFileSync(outJson, 'utf8')); } catch (e) { existing = {}; }
+
+  // Si el captures.json que ya estaba ahi trae claves de OTRO hostname que
+  // no sea "general" ni el que se esta capturando ahora, es casi seguro que
+  // se esta reusando la misma carpeta de trabajo entre dos equipos o
+  // proyectos distintos -- visto en la practica: dos informes de clientes
+  // distintos compartieron "work/" y build_report.js casi inserta la
+  // captura del cliente equivocado. Esto no bloquea nada (la corrida sigue,
+  // el merge se hace igual), pero el aviso es imposible de no ver en la
+  // consola, a diferencia de descubrirlo recien al revisar el .docx.
+  const otrosHosts = new Set();
+  for (const key of Object.keys(existing)) {
+    const m = key.match(/^(?:licencia|cpu|memoria|sesiones|ha_live|ospf_neighbor)_(.+)$/);
+    if (m && m[1] !== HOST && m[1] !== 'general') otrosHosts.add(m[1]);
+  }
+  if (otrosHosts.size) {
+    console.log('AVISO: captures.json ya tenia capturas de otro(s) equipo(s): ' + [...otrosHosts].join(', ') + '. Si "' + HOST + '" es un proyecto/cliente DISTINTO, esta carpeta de trabajo se esta reusando por error -- usa una carpeta nueva para este informe (ver SKILL.md, regla 4) en vez de seguir.');
+  }
+
   fs.writeFileSync(outJson, JSON.stringify({ ...existing, ...rel }, null, 2));
   console.log('captures.json actualizado:', outJson);
   console.log('Claves generadas:', Object.keys(rel).join(', '));

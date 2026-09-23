@@ -43,8 +43,17 @@ a entrar". El login lo hace el script solo, headless, con las credenciales del
 archivo. Si no hay credenciales, la respuesta es pedirlas en el archivo, no
 abrir una ventana.
 
-Crea una carpeta de trabajo para la corrida y deja ahí todo lo que produzcas.
-En los comandos de abajo esa carpeta se llama `work/`.
+**4. Cada informe va en su propia carpeta de trabajo — nunca reutilices `work/` entre `.conf` o clientes distintos.**
+Si generaste un informe para un equipo y ahora te piden otro (otro `.conf`,
+otro cliente, o el mismo cliente en una corrida nueva), crea una carpeta
+nueva — por ejemplo `work_<hostname>/` o `work_<cliente>/`, no la misma
+`work/` de antes. `capture_playwright.js` **acumula** claves en
+`captures.json` en vez de reemplazarlo (para no perder capturas de una
+corrida parcial); si dos proyectos comparten la carpeta, `captures.json`
+termina con imágenes de un equipo mezcladas con las de otro, y `build_report.js`
+puede insertar la captura del cliente equivocado en el informe del cliente
+actual. En los comandos de abajo esa carpeta se llama `work/` solo por
+brevedad — sustituye el nombre real que le hayas puesto.
 
 ---
 
@@ -104,6 +113,24 @@ por la cabecera `#config-version=FAZ...`.
 
 Lee el resumen de stderr (interfaces, rutas, políticas, perfiles). Si sale en
 cero, el `.conf` está vacío, truncado o cifrado: detente y dilo.
+
+**Contrasta lo que dijo el usuario contra lo que el `.conf` realmente trae —
+no asumas que coinciden.** Visto en la práctica: un usuario dio el modelo
+`FGT600F` y el `.conf` decía `FGT60F`; dijo "par HA" y el `.conf` no tenía
+`mode`/`group-id`/`hbdev`; dio una IP y el `.conf` traía otra; dijo "40
+políticas" y el parser contó 25. Ninguno de esos casos es que el usuario
+mintiera — son datos de memoria, de otro proyecto, o simplemente viejos. Si
+algo choca:
+
+- Si es fácil de verificar solo (p.ej. si hay o no un bloque de
+  FortiAnalyzer, o el conteo real de políticas), verifícalo tú mismo y sigue.
+- Si cambia el contenido del informe de forma material (modelo, si hay HA de
+  verdad o no, la IP a la que te vas a conectar), **pregúntale al usuario
+  cuál vale** en vez de elegir uno de los dos en silencio.
+
+No es opcional ni cosmético: el usuario no siempre puede ver el `.conf` con
+el mismo detalle que tú, y un informe de entrega con el modelo o el estado de
+HA equivocado es peor que uno que tardó un mensaje más en confirmarlo.
 
 ---
 

@@ -27,20 +27,42 @@ su Chromium, python-docx, Graphviz, y el archivo de credenciales abierto para qu
 lo llenes una sola vez.
 
 ```powershell
-irm https://raw.githubusercontent.com/Liebeslied001/fortinet-report-skill/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/supra-soc/supra-fortigate-skills/master/install.ps1 | iex
 ```
 
 Si prefieres leer el script antes de ejecutarlo — que es lo razonable con
 cualquier instalador de internet:
 
 ```powershell
-git clone https://github.com/Liebeslied001/fortinet-report-skill.git
-cd fortinet-report-skill
+git clone https://github.com/supra-soc/supra-fortigate-skills.git
+cd supra-fortigate-skills
 .\install.ps1
 ```
 
 Requisitos previos que el script **no** instala: Node.js 18+, Python 3.9+ y git.
 Si falta alguno, te lo dice y para.
+
+## Instalación rápida (macOS / Linux)
+
+Mismo instalador, adaptado a bash — misma ruta de destino, misma limpieza sin
+mezclar versiones viejas, mismas dependencias verificadas al final:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/supra-soc/supra-fortigate-skills/master/install.sh | bash
+```
+
+O, para leer el script antes de correrlo:
+
+```bash
+git clone https://github.com/supra-soc/supra-fortigate-skills.git
+cd supra-fortigate-skills
+./install.sh
+```
+
+En macOS instala Graphviz con `brew` (si no tienes Homebrew, instálalo antes:
+https://brew.sh); en Linux usa `apt-get`. Si tu distro usa otro gestor de
+paquetes, instala Graphviz a mano — el resto del script sigue funcionando sin
+topología hasta que lo hagas.
 
 ### Dónde queda instalado, y por qué importa
 
@@ -50,7 +72,7 @@ dos.
 
 El nombre de la carpeta tiene que ser exactamente **`fortigate-report`** — el
 campo `name:` del `SKILL.md`. Si clonas el repo a mano te queda
-`fortinet-report-skill`, que es el nombre del repositorio y no el del skill, y
+`supra-fortigate-skills`, que es el nombre del repositorio y no el del skill, y
 **el agente no lo encuentra**: el cargador de skills falla y el modelo termina
 leyendo el `SKILL.md` como si fuera un archivo cualquiera. El instalador existe
 en buena parte para evitar ese error.
@@ -65,6 +87,32 @@ Rutas alternativas válidas, si prefieres otra:
 | `.opencode\skills\fortigate-report` (en un proyecto) | opencode, solo ese proyecto |
 
 Se cambia con `.\install.ps1 -SkillsDir <ruta>`.
+
+### Peligro real: opencode escanea VARIAS de estas rutas a la vez
+
+Visto en la práctica (una instalación en Mac, sin `install.ps1`): ya había una
+copia vieja del skill en `~/.agents/skills/fortigate-report`, y el agente,
+siguiendo el README a mano, instaló la nueva en la MISMA ruta encima. Cuando
+después quiso limpiar y reinstalar, movió la vieja a
+`fortigate-report.bak-<fecha>` en vez de borrarla — y esa carpeta renombrada
+apareció como un **skill separado** en la lista de opencode, porque
+opencode registra cada carpeta con un `SKILL.md` que encuentra, sin importar
+el nombre de la carpeta.
+
+Dos reglas para evitar esto:
+
+1. **Antes de instalar, revisa las DOS rutas más comunes** —
+   `~/.claude/skills/fortigate-report` y `~/.agents/skills/fortigate-report` —
+   no asumas que solo una existe.
+2. **Nunca "respaldes" renombrando dentro de una carpeta de skills.** Si hay
+   que quitar una instalación vieja, bórrala (`rm -rf`) o muévela FUERA de
+   cualquier carpeta de skills (a `/tmp`, por ejemplo). El propio historial de
+   git ya es el respaldo — no hace falta un segundo.
+
+En Windows, `install.ps1` ya hace esto bien: instala solo en
+`~/.claude/skills/fortigate-report` y borra el destino antes de copiar (no lo
+renombra). El riesgo es específico de instalaciones manuales — Mac/Linux, sin
+instalador — donde cada sesión improvisa su propio método.
 
 ### Después de instalar
 

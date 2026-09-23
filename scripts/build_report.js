@@ -400,13 +400,33 @@ if (firewalls.length === 1 && Object.keys(captures).length) {
   }
 }
 
-const tipoProyectoLabel = metadata.tipo_proyecto === "migracion"
+// tipo_proyecto es un campo binario -- no admite un default razonable como
+// "(completar ...)" en las tablas de texto libre, porque cambia el titulo de
+// portada y el texto de conclusiones por defecto. La version anterior de
+// este archivo elegia "implementacion_nueva" en silencio para CUALQUIER
+// valor que no fuera literalmente "migracion" (vacio, "(completar ...)",
+// un typo) -- en la practica eso produjo un informe de MIGRACION real
+// titulado "Informe de Implementación" sin que nadie lo pidiera ni lo
+// notara hasta la entrega. Ahora solo se asume un tipo cuando el valor es
+// EXACTAMENTE uno de los dos validos; cualquier otra cosa se muestra tal
+// cual (o como pendiente) en vez de forzar una eleccion no pedida.
+const TIPO_MIGRACION = metadata.tipo_proyecto === "migracion";
+const TIPO_IMPLEMENTACION = metadata.tipo_proyecto === "implementacion_nueva";
+const TIPO_DEFINIDO = TIPO_MIGRACION || TIPO_IMPLEMENTACION;
+
+const tipoProyectoLabel = TIPO_MIGRACION
   ? "Migración de equipos existentes"
-  : "Implementación nueva (desde cero)";
+  : TIPO_IMPLEMENTACION
+  ? "Implementación nueva (desde cero)"
+  : (metadata.tipo_proyecto || "(completar: migracion o implementacion_nueva)");
 
 // ---------- build sections ----------
 
-const tituloInforme = metadata.tipo_proyecto === "migracion" ? "Informe de Migración" : "Informe de Implementación";
+const tituloInforme = TIPO_MIGRACION
+  ? "Informe de Migración"
+  : TIPO_IMPLEMENTACION
+  ? "Informe de Implementación"
+  : "Informe de Entrega";
 
 // ---------- Cover (its own section, full-bleed SUPRA background) ----------
 
@@ -732,9 +752,11 @@ children.push(h1("Conclusiones y Recomendaciones"));
 const conclusiones = (metadata.conclusiones && metadata.conclusiones.length)
   ? metadata.conclusiones
   : [
-      metadata.tipo_proyecto === "migracion"
+      TIPO_MIGRACION
         ? "Se cumplió con la migración de configuración a los nuevos equipos."
-        : "Se cumplió con la implementación de los equipos desde cero.",
+        : TIPO_IMPLEMENTACION
+        ? "Se cumplió con la implementación de los equipos desde cero."
+        : "Se cumplió con el proyecto (completar: migración o implementación).",
       "(completar con hallazgos y pendientes específicos del proyecto)",
     ];
 conclusiones.forEach((c) => children.push(bullet(c)));
